@@ -1,11 +1,17 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(lvi_sam)
 
+################## 编译开关 compile switch##############
+# -DIF_OFFICIAL=1: use origin official LVI-SAM code
+# -DIF_OFFICIAL=0: use modified code of this repo
+add_definitions(-DIF_OFFICIAL=0)
+
+
 ######################
 ### Cmake flags
 ######################
 set(CMAKE_BUILD_TYPE "Release")
-set(CMAKE_CXX_FLAGS "-std=c++11")
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g -pthread")
 
 ######################
@@ -44,6 +50,12 @@ add_message_files(
   DIRECTORY msg
   FILES
   cloud_info.msg
+)
+
+add_service_files(
+  DIRECTORY srv
+  FILES
+  save_map.srv
 )
 
 generate_messages(

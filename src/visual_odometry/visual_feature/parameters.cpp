@@ -21,12 +21,20 @@ int FOCAL_LENGTH;
 int FISHEYE;
 bool PUB_THIS_FRAME;
 
+
+#if IF_OFFICIAL
 double L_C_TX;
 double L_C_TY;
 double L_C_TZ;
 double L_C_RX;
 double L_C_RY;
 double L_C_RZ;
+#else
+//? mod: lidar -> imu外参
+// [R_imu_lidar, t_imu_lidar;
+//         0,          1    ]
+tf::Transform Transform_imu_lidar;
+#endif
 
 int USE_LIDAR;
 int LIDAR_SKIP;
@@ -65,12 +73,14 @@ void readParameters(ros::NodeHandle &n)
     SHOW_TRACK = fsSettings["show_track"];
     EQUALIZE = fsSettings["equalize"];
 
+#if IF_OFFICIAL
     L_C_TX = fsSettings["lidar_to_cam_tx"];
     L_C_TY = fsSettings["lidar_to_cam_ty"];
     L_C_TZ = fsSettings["lidar_to_cam_tz"];
     L_C_RX = fsSettings["lidar_to_cam_rx"];
     L_C_RY = fsSettings["lidar_to_cam_ry"];
     L_C_RZ = fsSettings["lidar_to_cam_rz"];
+#endif
 
     // fisheye mask
     FISHEYE = fsSettings["fisheye"];
@@ -93,6 +103,30 @@ void readParameters(ros::NodeHandle &n)
         FREQ = 100;
 
     fsSettings.release();
+
+    //? add: 读取params_lidar.yaml中的参数
+#if IF_OFFICIAL
+
+#else
+    std::vector<double> t_imu_lidar_V;
+    std::vector<double> R_imu_lidar_V;
+    n.param<std::vector<double>>(PROJECT_NAME+ "/extrinsicTranslation", t_imu_lidar_V, std::vector<double>());
+    n.param<std::vector<double>>(PROJECT_NAME+ "/extrinsicRotation", R_imu_lidar_V, std::vector<double>());
+    Eigen::Vector3d t_imu_lidar = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(t_imu_lidar_V.data(), 3, 1);
+    Eigen::Matrix3d R_tmp = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(R_imu_lidar_V.data(), 3, 3);
+    ROS_ASSERT(abs(R_tmp.determinant()) > 0.9);   // 防止配置文件中写错，这里加一个断言判断一下
+    Eigen::Quaterniond Q_imu_lidar = Eigen::Quaterniond(R_tmp).normalized();
+    Eigen::Matrix3d R_imu_lidar = Q_imu_lidar.toRotationMatrix();
+    
+    Transform_imu_lidar = tf::Transform(tf::Quaternion(Q_imu_lidar.x(), Q_imu_lidar.y(), Q_imu_lidar.z(), Q_imu_lidar.w()), 
+        tf::Vector3(t_imu_lidar(0), t_imu_lidar(1), t_imu_lidar(2)));
+
+    ROS_WARN_STREAM("=vins-feature_tracker read R_imu_lidar : =====================");
+    std::cout << R_imu_lidar << std::endl;
+    ROS_WARN_STREAM("=vins-feature_tracker read t_lidar_imu : =====================");
+    std::cout << t_imu_lidar(0)  << ", " << t_imu_lidar(1) << ", " << t_imu_lidar(2) << std::endl;
+#endif
+
     usleep(100);
 }
 

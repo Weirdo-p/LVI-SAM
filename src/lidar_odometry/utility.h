@@ -1,6 +1,7 @@
 #pragma once
 #ifndef _UTILITY_LIDAR_ODOMETRY_H_
 #define _UTILITY_LIDAR_ODOMETRY_H_
+#define PCL_NO_PRECOMPILE 
 
 #include <ros/ros.h>
 
@@ -14,7 +15,7 @@
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 
-#include <opencv/cv.h>
+#include <opencv2/imgproc.hpp>
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
@@ -53,11 +54,13 @@
 #include <array>
 #include <thread>
 #include <mutex>
+#include <unordered_map>
 
 using namespace std;
 
 typedef pcl::PointXYZI PointType;
 
+enum class SensorType { VELODYNE, OUSTER, LIVOX };
 
 class ParamServer
 {
@@ -74,6 +77,12 @@ public:
     string odomTopic;
     string gpsTopic;
 
+    //Frames
+    string lidarFrame;
+    string baselinkFrame;
+    string odometryFrame;
+    string mapFrame;
+
     // GPS Settings
     bool useImuHeadingInitialization;
     bool useGpsElevation;
@@ -84,11 +93,14 @@ public:
     bool savePCD;
     string savePCDDirectory;
 
-    // Velodyne Sensor Configuration: Velodyne
+    // Lidar Sensor Configuration
+    SensorType sensor;
     int N_SCAN;
     int Horizon_SCAN;
-    string timeField;
     int downsampleRate;
+    float lidarMinRange;
+    float lidarMaxRange;
+    bool transDeskew;
 
     // IMU
     float imuAccNoise;
@@ -96,13 +108,26 @@ public:
     float imuAccBiasN;
     float imuGyrBiasN;
     float imuGravity;
+    float imuRPYWeight;
+   
+
+#if IF_OFFICIAL
     vector<double> extRotV;
     vector<double> extRPYV;
     vector<double> extTransV;
-    Eigen::Matrix3d extRot;
-    Eigen::Matrix3d extRPY;
-    Eigen::Vector3d extTrans;
+    Eigen::Matrix3d extRot;     //; R_lidar_imu, 即IMU -> LiDAR的旋转
+    Eigen::Matrix3d extRPY; 
+    Eigen::Vector3d extTrans;   //; t_lidar_imu, 即IMU -> LiDAR的平移
     Eigen::Quaterniond extQRPY;
+#else
+    static bool if_print_param;
+    vector<double> R_imu_lidar_V;
+    vector<double> t_imu_lidar_V;
+    Eigen::Matrix3d R_imu_lidar;   //; R_imu_lidar, 即LiDAR -> IMU的旋转
+    Eigen::Matrix3d R_lidar_imu;   //; R_imu_lidar.transpose()
+    Eigen::Vector3d t_imu_lidar;   //; t_imu_lidar, 即LiDAR -> IMU的平移
+    Eigen::Quaterniond Q_quat_lidar; //; R_quat_lidar, 即LiDAR -> IMU的四元数坐标系的旋转
+#endif
 
     // LOAM
     float edgeThreshold;
@@ -129,7 +154,8 @@ public:
     float surroundingKeyframeSearchRadius;
     
     // Loop closure
-    bool loopClosureEnableFlag;
+    bool  loopClosureEnableFlag;
+    float loopClosureFrequency;
     int   surroundingKeyframeSize;
     float historyKeyframeSearchRadius;
     float historyKeyframeSearchTimeDiff;
@@ -152,6 +178,11 @@ public:
         nh.param<std::string>(PROJECT_NAME + "/odomTopic", odomTopic, "odometry/imu");
         nh.param<std::string>(PROJECT_NAME + "/gpsTopic", gpsTopic, "odometry/gps");
 
+        nh.param<std::string>(PROJECT_NAME + "/lidarFrame", lidarFrame, "base_link");
+        nh.param<std::string>(PROJECT_NAME + "/baselinkFrame", baselinkFrame, "base_link");
+        nh.param<std::string>(PROJECT_NAME + "/odometryFrame", odometryFrame, "odom");
+        nh.param<std::string>(PROJECT_NAME + "/mapFrame", mapFrame, "map");
+
         nh.param<bool>(PROJECT_NAME + "/useImuHeadingInitialization", useImuHeadingInitialization, false);
         nh.param<bool>(PROJECT_NAME + "/useGpsElevation", useGpsElevation, false);
         nh.param<float>(PROJECT_NAME + "/gpsCovThreshold", gpsCovThreshold, 2.0);
@@ -160,16 +191,42 @@ public:
         nh.param<bool>(PROJECT_NAME + "/savePCD", savePCD, false);
         nh.param<std::string>(PROJECT_NAME + "/savePCDDirectory", savePCDDirectory, "/tmp/loam/");
 
+        std::string sensorStr;
+        nh.param<std::string>(PROJECT_NAME + "/sensor", sensorStr, "");
+        if (sensorStr == "velodyne")
+        {
+            sensor = SensorType::VELODYNE;
+        }
+        else if (sensorStr == "ouster")
+        {
+            sensor = SensorType::OUSTER;
+        }
+        else if (sensorStr == "livox")
+        {
+            sensor = SensorType::LIVOX;
+        }
+        else
+        {
+            ROS_ERROR_STREAM(
+                "Invalid sensor type (must be either 'velodyne' or 'ouster' or 'livox'): " << sensorStr);
+            ros::shutdown();
+        }
+
         nh.param<int>(PROJECT_NAME + "/N_SCAN", N_SCAN, 16);
         nh.param<int>(PROJECT_NAME + "/Horizon_SCAN", Horizon_SCAN, 1800);
-        nh.param<std::string>(PROJECT_NAME + "/timeField", timeField, "time");
         nh.param<int>(PROJECT_NAME + "/downsampleRate", downsampleRate, 1);
+        nh.param<float>(PROJECT_NAME + "/lidarMinRange", lidarMinRange, 1.0);
+        nh.param<float>(PROJECT_NAME + "/lidarMaxRange", lidarMaxRange, 1000.0);
+        nh.param<bool>(PROJECT_NAME + "/transDeskew", transDeskew, false);
 
         nh.param<float>(PROJECT_NAME + "/imuAccNoise", imuAccNoise, 0.01);
         nh.param<float>(PROJECT_NAME + "/imuGyrNoise", imuGyrNoise, 0.001);
         nh.param<float>(PROJECT_NAME + "/imuAccBiasN", imuAccBiasN, 0.0002);
         nh.param<float>(PROJECT_NAME + "/imuGyrBiasN", imuGyrBiasN, 0.00003);
         nh.param<float>(PROJECT_NAME + "/imuGravity", imuGravity, 9.80511);
+        nh.param<float>(PROJECT_NAME + "/imuRPYWeight", imuRPYWeight, 0.01);
+
+    #if IF_OFFICIAL
         nh.param<vector<double>>(PROJECT_NAME+ "/extrinsicRot", extRotV, vector<double>());
         nh.param<vector<double>>(PROJECT_NAME+ "/extrinsicRPY", extRPYV, vector<double>());
         nh.param<vector<double>>(PROJECT_NAME+ "/extrinsicTrans", extTransV, vector<double>());
@@ -177,6 +234,63 @@ public:
         extRPY = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(extRPYV.data(), 3, 3);
         extTrans = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(extTransV.data(), 3, 1);
         extQRPY = Eigen::Quaterniond(extRPY);
+    #else
+        //? mod: 修改外参读取方式
+        nh.param<vector<double>>(PROJECT_NAME+ "/extrinsicTranslation", t_imu_lidar_V, vector<double>());
+        nh.param<vector<double>>(PROJECT_NAME+ "/extrinsicRotation", R_imu_lidar_V, vector<double>());
+        t_imu_lidar = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(t_imu_lidar_V.data(), 3, 1);
+        Eigen::Matrix3d R_tmp = Eigen::Map<const Eigen::Matrix<double, -1, -1, Eigen::RowMajor>>(R_imu_lidar_V.data(), 3, 3);
+        ROS_ASSERT(abs(R_tmp.determinant()) > 0.9);   // 防止配置文件中写错，这里加一个断言判断一下
+        R_imu_lidar = Eigen::Quaterniond(R_tmp).normalized().toRotationMatrix();
+        R_lidar_imu = R_imu_lidar.transpose();
+
+        //; yaw/pitch/roll的欧拉角绕着哪个轴逆时针旋转，结果为正数。一般来说是绕着+z、+y、+x
+        std::string yaw_axis, pitch_axis, roll_axis;   
+        nh.param<std::string>(PROJECT_NAME + "/yawAxis", yaw_axis, "+z");
+        ROS_ASSERT(yaw_axis[0] == '+' || yaw_axis[0] == '-');
+        nh.param<std::string>(PROJECT_NAME + "/pitchAxis", pitch_axis, "+y");
+        ROS_ASSERT(pitch_axis[0] == '+' || pitch_axis[0] == '-');
+        nh.param<std::string>(PROJECT_NAME + "/rollAxis", roll_axis, "+x");
+        ROS_ASSERT(roll_axis[0] == '+' || roll_axis[0] == '-');
+        ROS_ASSERT(yaw_axis[1] != pitch_axis[1] && yaw_axis[1] != roll_axis[1] && pitch_axis[1] != roll_axis[1]);
+
+        //; 旋转的欧拉角坐标系(quat) -> IMU角速度、加速度坐标系(imu) 的旋转
+        Eigen::Matrix3d R_imu_quat;   
+        std::unordered_map<std::string, Eigen::Vector3d> col_map;
+        col_map.insert({"+x", Eigen::Vector3d( 1,  0,  0)}); 
+        col_map.insert({"-x", Eigen::Vector3d(-1,  0,  0)});
+        col_map.insert({"+y", Eigen::Vector3d( 0,  1,  0)}); 
+        col_map.insert({"-y", Eigen::Vector3d( 0, -1,  0)});
+        col_map.insert({"+z", Eigen::Vector3d( 0,  0,  1)}); 
+        col_map.insert({"-z", Eigen::Vector3d( 0,  0, -1)});
+        R_imu_quat.col(2) = col_map[yaw_axis];
+        R_imu_quat.col(1) = col_map[pitch_axis];
+        R_imu_quat.col(0) = col_map[roll_axis];
+        ROS_ASSERT(abs(R_imu_quat.determinant()) > 0.9);  
+
+        //; R_quat_lidar = R_quat_imu * R_imu_lidar
+        Eigen::Matrix3d R_quat_lidar = R_imu_quat.transpose() * R_imu_lidar;  
+        Q_quat_lidar = Eigen::Quaterniond(R_quat_lidar).normalized();
+
+        if(if_print_param)
+        {
+            if_print_param = false;
+            ROS_WARN_STREAM("=== R_imu_lidar : ===============");
+            std::cout << R_imu_lidar << std::endl;
+            ROS_WARN_STREAM("=== t_imu_lidar : ===============");
+            std::cout << t_imu_lidar << std::endl;
+
+            ROS_WARN_STREAM("=== R_imu_quat  : ===============");
+            std::cout << "yawAxis = " << yaw_axis << ", col_map: " << col_map[yaw_axis].transpose()
+                << ", pitchAxis = " << pitch_axis << ", col_map: " << col_map[pitch_axis].transpose()
+                << ", rollAxis = " << roll_axis << ", col_map: " << col_map[roll_axis].transpose()
+                << std::endl;
+            std::cout << R_imu_quat << std::endl;
+
+            ROS_WARN_STREAM("=== R_quat_lidar  : ===============");
+            std::cout << R_quat_lidar << std::endl;
+        }
+    #endif
 
         nh.param<float>(PROJECT_NAME + "/edgeThreshold", edgeThreshold, 0.1);
         nh.param<float>(PROJECT_NAME + "/surfThreshold", surfThreshold, 0.1);
@@ -199,6 +313,8 @@ public:
         nh.param<float>(PROJECT_NAME + "/surroundingKeyframeSearchRadius", surroundingKeyframeSearchRadius, 50.0);
 
         nh.param<bool>(PROJECT_NAME + "/loopClosureEnableFlag", loopClosureEnableFlag, false);
+        nh.param<float>(PROJECT_NAME + "/loopClosureFrequency", loopClosureFrequency, 1.0);
+
         nh.param<int>(PROJECT_NAME + "/surroundingKeyframeSize", surroundingKeyframeSize, 50);
         nh.param<float>(PROJECT_NAME + "/historyKeyframeSearchRadius", historyKeyframeSearchRadius, 10.0);
         nh.param<float>(PROJECT_NAME + "/historyKeyframeSearchTimeDiff", historyKeyframeSearchTimeDiff, 30.0);
@@ -217,19 +333,32 @@ public:
         sensor_msgs::Imu imu_out = imu_in;
         // rotate acceleration
         Eigen::Vector3d acc(imu_in.linear_acceleration.x, imu_in.linear_acceleration.y, imu_in.linear_acceleration.z);
+    #if IF_OFFICIAL
         acc = extRot * acc;
+    #else
+        acc = R_lidar_imu * acc;
+    #endif
         imu_out.linear_acceleration.x = acc.x();
         imu_out.linear_acceleration.y = acc.y();
         imu_out.linear_acceleration.z = acc.z();
         // rotate gyroscope
         Eigen::Vector3d gyr(imu_in.angular_velocity.x, imu_in.angular_velocity.y, imu_in.angular_velocity.z);
+    #if IF_OFFICIAL
         gyr = extRot * gyr;
+    #else
+        gyr = R_lidar_imu * gyr;
+    #endif
+        
         imu_out.angular_velocity.x = gyr.x();
         imu_out.angular_velocity.y = gyr.y();
         imu_out.angular_velocity.z = gyr.z();
         // rotate roll pitch yaw
-        Eigen::Quaterniond q_from(imu_in.orientation.w, imu_in.orientation.x, imu_in.orientation.y, imu_in.orientation.z);
+        Eigen::Quaterniond q_from(imu_in.orientation.w, imu_in.orientation.x, imu_in.orientation.y, imu_in.orientation.z);  
+    #if IF_OFFICIAL
         Eigen::Quaterniond q_final = q_from * extQRPY;
+    #else
+        Eigen::Quaterniond q_final = q_from * Q_quat_lidar;
+    #endif  
         imu_out.orientation.x = q_final.x();
         imu_out.orientation.y = q_final.y();
         imu_out.orientation.z = q_final.z();
@@ -245,15 +374,20 @@ public:
     }
 };
 
+#if IF_OFFICIAL
+#else
+bool ParamServer::if_print_param = true;
+#endif
+
 template<typename T>
-sensor_msgs::PointCloud2 publishCloud(ros::Publisher *thisPub, T thisCloud, ros::Time thisStamp, std::string thisFrame)
+sensor_msgs::PointCloud2 publishCloud(const ros::Publisher& thisPub, const T& thisCloud, ros::Time thisStamp, std::string thisFrame)
 {
     sensor_msgs::PointCloud2 tempCloud;
     pcl::toROSMsg(*thisCloud, tempCloud);
     tempCloud.header.stamp = thisStamp;
     tempCloud.header.frame_id = thisFrame;
-    if (thisPub->getNumSubscribers() != 0)
-        thisPub->publish(tempCloud);
+    if (thisPub.getNumSubscribers() != 0)
+        thisPub.publish(tempCloud);
     return tempCloud;
 }
 
