@@ -142,21 +142,24 @@ void imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
         return;
     }
     last_imu_t = imu_msg->header.stamp.toSec();
-
+    //cout<<"imu_callback0"<<endl;
     m_buf.lock();
     imu_buf.push(imu_msg);
     m_buf.unlock();
     con.notify_one();
-
+    //cout<<"imu_callback1"<<endl;
     last_imu_t = imu_msg->header.stamp.toSec();
 
     {
         std::lock_guard<std::mutex> lg(m_state);
         predict(imu_msg);
         std_msgs::Header header = imu_msg->header;
+        // cout<<"NON_LINEAR"<<endl;
         if (estimator.solver_flag == Estimator::SolverFlag::NON_LINEAR)
+            // cout<<"NON_LINEAR1"<<endl;
             pubLatestOdometry(tmp_P, tmp_Q, tmp_V, header, estimator.failureCount);
     }
+    //cout<<"imu_callback2"<<endl;
 }
 
 void odom_callback(const nav_msgs::Odometry::ConstPtr& odom_msg)
@@ -305,6 +308,7 @@ void process()
             pubTF(estimator, header);
             pubKeyframe(estimator);
         }
+        // cout<<"VINS is ok!!!"<<endl;
         m_estimator.unlock();
 
         m_buf.lock();
@@ -313,7 +317,9 @@ void process()
             update();
         m_state.unlock();
         m_buf.unlock();
+        
     }
+    
 }
 
 int main(int argc, char **argv)

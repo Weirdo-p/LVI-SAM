@@ -152,6 +152,9 @@ public:
     {
         std::lock_guard<std::mutex> lock2(odoLock);
         odomQueue.push_back(*odometryMsg);
+        // savevinsodomToTxt(odometryMsg);
+
+        // cout<<"odomQueue.size:"<<odomQueue.size()<<endl;
     }
 
     void cloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
@@ -176,7 +179,7 @@ public:
         // cache point cloud
         cloudQueue.push_back(*laserCloudMsg);
 
-        if (cloudQueue.size() <= 2)
+        if (cloudQueue.size() <= 5)
             return false;
         else
         {
@@ -280,7 +283,10 @@ public:
 
             // get roll, pitch, and yaw estimation for this scan
             if (currentImuTime <= timeScanCur)
-                imuRPY2rosRPY(&thisImuMsg, &cloudInfo.imuRollInit, &cloudInfo.imuPitchInit, &cloudInfo.imuYawInit);
+                // imuRPY2rosRPY(&thisImuMsg, &cloudInfo.imuRollInit, &cloudInfo.imuPitchInit, &cloudInfo.imuYawInit);
+                cloudInfo.imuRollInit=0.0;
+                cloudInfo.imuPitchInit=0.0;
+                cloudInfo.imuYawInit=0.0;
 
             if (currentImuTime > timeScanNext + 0.01)
                 break;
@@ -318,7 +324,7 @@ public:
     void odomDeskewInfo()
     {
         cloudInfo.odomAvailable = false;
-
+        // cout<<"odomQueue.size():"<<odomQueue.size()<<endl;
         while (!odomQueue.empty())
         {
             if (odomQueue.front().header.stamp.toSec() < timeScanCur - 0.01)
@@ -326,16 +332,16 @@ public:
             else
                 break;
         }
-
+        // cout<<"2222"<<endl;
         if (odomQueue.empty())
             return;
-
+        // cout<<"3333"<<endl;
         if (odomQueue.front().header.stamp.toSec() > timeScanCur)
             return;
 
         // get start odometry at the beinning of the scan
         nav_msgs::Odometry startOdomMsg;
-
+        // cout<<"4444"<<endl;
         for (int i = 0; i < (int)odomQueue.size(); ++i)
         {
             startOdomMsg = odomQueue[i];
@@ -353,6 +359,7 @@ public:
         tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
 
         // Initial guess used in mapOptimization
+        cout<<"VINS intial is ok!!!"<<endl;
         cloudInfo.odomX = startOdomMsg.pose.pose.position.x;
         cloudInfo.odomY = startOdomMsg.pose.pose.position.y;
         cloudInfo.odomZ = startOdomMsg.pose.pose.position.z;

@@ -56,7 +56,7 @@ void pubLatestOdometry(const Eigen::Vector3d &P, const Eigen::Quaterniond &Q, co
     static tf::TransformBroadcaster br;
     static tf::TransformListener listener;
     static double last_align_time = -1;
-
+    // cout<<"pubLatestOdometry"<<endl;
     // Quternion not normalized
     if (Q.x() * Q.x() + Q.y() * Q.y() + Q.z() * Q.z() + Q.w() * Q.w() < 0.99)
         return;

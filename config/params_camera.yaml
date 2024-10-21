@@ -1,90 +1,140 @@
 %YAML:1.0
-
 # Project
 project_name: "lvi_sam"
 
 #common parameters
+
 imu_topic: "/imu_raw"
-image_topic: "/camera/image_raw"
+# imu_topic: "/imu0"
+image_topic: "/cam00/image_raw"
+# image_topic: "/cam1/image_raw"
 point_cloud_topic: "lvi_sam/lidar/deskew/cloud_deskewed"
 
 # Lidar Params
-use_lidar: 1                     # whether use depth info from lidar or not
+# use_lidar:  0                     # whether use depth info from lidar or not
+# lidar_skip: 1                    # skip this amount of scans
+use_lidar:  1                     # whether use depth info from lidar or not
 lidar_skip: 3                    # skip this amount of scans
 align_camera_lidar_estimation: 1 # align camera and lidar estimation for visualization
 
 # lidar to camera extrinsic
-lidar_to_cam_tx: 0.05
-lidar_to_cam_ty: -0.07
-lidar_to_cam_tz: -0.07
-lidar_to_cam_rx: 0.0
-lidar_to_cam_ry: 0.0
-lidar_to_cam_rz: -0.04
+# lidar_to_cam_tx: 0.05
+# lidar_to_cam_ty: -0.07
+# lidar_to_cam_tz: -0.07
+# lidar_to_cam_rx: 0.0
+# lidar_to_cam_ry: 0.0
+# lidar_to_cam_rz: -0.04
+# lidar_to_cam_tx: -0.134
+# lidar_to_cam_ty: -0.0193
+# lidar_to_cam_tz: 0.153
+# lidar_to_cam_rx: 1.577
+# lidar_to_cam_ry: 3.1415
+# lidar_to_cam_rz: -1.577
+# lidar_to_cam_tx: 0.01769
+# lidar_to_cam_ty: -0.209209443637694
+# lidar_to_cam_tz: -0.179032616966735
+#yuanshi
+lidar_to_cam_tx: 0.07527576
+lidar_to_cam_ty: -0.28182659
+lidar_to_cam_tz: -0.18479526
+lidar_to_cam_rx: 1.570796
+lidar_to_cam_ry: -1.570796
+lidar_to_cam_rz: 0.0
 
-# camera model
-model_type: MEI
+# lidar_to_cam_rx: -1.5707963
+# lidar_to_cam_ry: 0.0
+# lidar_to_cam_rz: -1.5707963
+
+# lidar_to_cam_tx: 0.18479526
+# lidar_to_cam_ty: 0.07527576
+# lidar_to_cam_tz: -0.28182659
+model_type: PINHOLE
 camera_name: camera
-
 # Mono camera config
-image_width: 720
-image_height: 540
-mirror_parameters:
-   xi: 1.9926618269451453
+# image_width: 720
+# image_height: 540
+image_width: 1280
+image_height: 1024
 distortion_parameters:
-   k1: -0.0399258932468764
-   k2: 0.15160828121223818
-   p1: 0.00017756967825777937
-   p2: -0.0011531239076798612
-projection_parameters:
-   gamma1: 669.8940458885896
-   gamma2: 669.1450614220616
-   u0: 377.9459252967363
-   v0: 279.63655686698144
-fisheye_mask: "/config/fisheye_mask_720x540.jpg"
+   k1: -0.3553
+   k2: 0.167
+   p1: 0.00013946
+   p2: 0.00027632
+projection_parameters:   
+   fx: 760.5469
+   fy: 760.772
+   cx: 649.9081
+   cy: 486.5999
+
+# #imu parameters       The more accurate parameters you provide, the worse performance
+# acc_n: 0.02         # accelerometer measurement noise standard deviation.
+# gyr_n: 0.01         # gyroscope measurement noise standard deviation.
+# acc_w: 0.002        # accelerometer bias random work noise standard deviation.
+# gyr_w: 4.0e-5       # gyroscope bias random work noise standard deviation.
+# g_norm: 9.805       #
 
 #imu parameters       The more accurate parameters you provide, the worse performance
-acc_n: 0.02         # accelerometer measurement noise standard deviation.
-gyr_n: 0.01         # gyroscope measurement noise standard deviation.
-acc_w: 0.002        # accelerometer bias random work noise standard deviation.
-gyr_w: 4.0e-5       # gyroscope bias random work noise standard deviation.
-g_norm: 9.805       #
+acc_n: 0.0012727922061357858         # accelerometer measurement noise standard deviation.
+gyr_n: 0.0000014523393128996995         # gyroscope measurement noise standard deviation.
+acc_w: 0.00024682682989768704        # accelerometer bias random work noise standard deviation.
+gyr_w: 0.000650445807572307       # gyroscope bias random work noise standard deviation.
+g_norm: 9.787561       #
 
 # Extrinsic parameter between IMU and Camera.
-estimate_extrinsic: 0   # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
+estimate_extrinsic: 0 # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
                         # 1  Have an initial guess about extrinsic parameters. We will optimize around your initial guess.
                         # 2  Don't know anything about extrinsic parameters. You don't need to give R,T. We will try to calibrate it. Do some rotation movement at beginning. 
 #Rotation from camera frame to imu frame, imu^R_cam
+#camare->imu坐标系
+#下面的外参轴系为
 extrinsicRotation: !!opencv-matrix
    rows: 3
    cols: 3
    dt: d
-   data: [ 0, 0, -1, 
-           -1, 0, 0, 
-           0, 1, 0]
+   # data: [ 9.9987755e-01, -1.5115970e-02, 4.0481300e-03, 
+   #         -4.0424800e-03, 4.0451000e-04, 9.9999175e-01, 
+   #         -1.5117480e-02, -9.9988567e-01, 3.4336000e-04]
+   data: [  0.99904543, -0.01375358,  0.04146159, 
+           -0.04119367,  0.0192227 ,  0.99896625, 
+           -0.01453636, -0.99972062,  0.01863779]
+#   [ 0.01511748,  0.99988567, -0.00034336 , 
+#   0.99987755 ,-0.01511597,  0.00404813, 
+#   0.00404248 ,-0.00040451, -0.99999175 ]
+
+# [ 0.13391565, -0.01468907,-0.15294062]
+
 
 #Translation from camera frame to imu frame, imu^T_cam
+# extrinsicTranslation: !!opencv-matrix
+#    rows: 3
+#    cols: 1
+#    dt: d
+#    data: [0.006422381632411965, 0.019939800449065116, 0.03364235163589248]
+#data: [-1.4689070e-02, 1.5294062e-01, -1.3391565e-01]
 extrinsicTranslation: !!opencv-matrix
    rows: 3
    cols: 1
    dt: d
-   data: [0.006422381632411965, 0.019939800449065116, 0.03364235163589248]
+   # data: [-1.4689070e-02, 1.5294062e-01, -1.3391565e-01]
+   # data: [1.5294062e-01, 1.4689070e-02,-1.3391565e-01]
+   data: [-0.07527576, 0.18479526, -0.24771659]
 
 #feature traker paprameters
-max_cnt: 150            # max feature number in feature tracking
-min_dist: 20            # min distance between two features 
-freq: 20                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
+max_cnt: 300            # max feature number in feature tracking
+min_dist: 20           # min distance between two features 
+freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
 F_threshold: 1.0        # ransac threshold (pixel)
-show_track: 1           # publish tracking image as topic
+show_track: 1           #  publish tracking image as topic
 equalize: 1             # if image is too dark or light, trun on equalize to find enough features
-fisheye: 1              # if using fisheye, trun on it. A circle mask will be loaded to remove edge noisy points
+fisheye: 0              # if using fisheye, trun on it. A circle mask will be loaded to remove edge noisy points
 
 #optimization parameters
-max_solver_time: 0.035   # max solver itration time (ms), to guarantee real time
+max_solver_time: 0.04   # max solver itration time (ms), to guarantee real time
 max_num_iterations: 10   # max solver itrations, to guarantee real time
 keyframe_parallax: 10.0  # keyframe selection threshold (pixel)
 
 #unsynchronization parameters
-estimate_td: 0           # online estimate time offset between camera and imu
+estimate_td: 1           # online estimate time offset between camera and imu
 td: 0                    # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
 
 #rolling shutter parameters

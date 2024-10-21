@@ -160,14 +160,17 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
     {
         if (frame_count == WINDOW_SIZE)
         {
+            cout<<"0"<<endl;
             bool result = false;
             if( ESTIMATE_EXTRINSIC != 2 && (header.stamp.toSec() - initial_timestamp) > 0.1)
             {
+               cout<<"1"<<endl;
                result = initialStructure();
                initial_timestamp = header.stamp.toSec();
             }
             if(result)
             {
+                cout<<"2"<<endl;
                 solver_flag = NON_LINEAR;
                 solveOdometry();
                 slideWindow();
@@ -187,9 +190,10 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
     else
     {
         solveOdometry();
-
+        cout<<"solveOdometry()"<<endl;
         if (failureDetection())
         {
+            cout<<"failureDetection()"<<endl;
             ROS_ERROR("VINS failure detection!");
             failure_occur = 1;
             clearState();
@@ -617,6 +621,7 @@ void Estimator::double2vector()
         Ps[i] = rot_diff * Vector3d(para_Pose[i][0] - para_Pose[0][0],
                                 para_Pose[i][1] - para_Pose[0][1],
                                 para_Pose[i][2] - para_Pose[0][2]) + origin_P0;
+        cout<<"x:   "<<Ps[i][0]<<"y:    "<<Ps[i][1]<<"z:    "<<Ps[i][2]<<endl;
 
         Vs[i] = rot_diff * Vector3d(para_SpeedBias[i][0],
                                     para_SpeedBias[i][1],

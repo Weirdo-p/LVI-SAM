@@ -16,6 +16,11 @@
 
 #include <gtsam/nonlinear/ISAM2.h>
 
+#include <fstream>
+#include <iostream>
+#include <iterator>  ///****add
+#include <Eigen/Dense> // 假设你在使用 Eigen 库处理 Quaterniond 和 Vector3d
+
 using namespace gtsam;
 
 using symbol_shorthand::X; // Pose3 (x,y,z,r,p,y)
@@ -74,6 +79,9 @@ public:
     ros::Subscriber subLaserCloudInfo;
     ros::Subscriber subGPS;
     ros::Subscriber subLoopInfo;
+    //****add
+    ros::Subscriber subOdom1;
+    std::deque<nav_msgs::Odometry> vinsodomQueue;
 
     std::deque<nav_msgs::Odometry> gpsQueue;
     lvi_sam::cloud_info cloudInfo;
@@ -158,6 +166,8 @@ public:
         subLaserCloudInfo     = nh.subscribe<lvi_sam::cloud_info>     (PROJECT_NAME + "/lidar/feature/cloud_info", 5, &mapOptimization::laserCloudInfoHandler, this, ros::TransportHints().tcpNoDelay());
         subGPS                = nh.subscribe<nav_msgs::Odometry>      (gpsTopic,                                   50, &mapOptimization::gpsHandler, this, ros::TransportHints().tcpNoDelay());
         subLoopInfo           = nh.subscribe<std_msgs::Float64MultiArray>(PROJECT_NAME + "/vins/loop/match_frame", 5, &mapOptimization::loopHandler, this, ros::TransportHints().tcpNoDelay());
+//************add
+        // subOdom1              = nh.subscribe<nav_msgs::Odometry>      (PROJECT_NAME + "/vins/odometry/imu_propagate_ros", 2000, &mapOptimization::vinsodometryHandler, this, ros::TransportHints().tcpNoDelay());
 
         pubHistoryKeyFrames   = nh.advertise<sensor_msgs::PointCloud2>(PROJECT_NAME + "/lidar/mapping/loop_closure_history_cloud", 1);
         pubIcpKeyFrames       = nh.advertise<sensor_msgs::PointCloud2>(PROJECT_NAME + "/lidar/mapping/loop_closure_corrected_cloud", 1);
@@ -334,10 +344,71 @@ public:
     }
 
     
+//save 6D to txt******************add
+    void savePointCloudToTxt()
+    {
+        //string saveMapDirectory = std::getenv("HOME") + savePCDDirectory;
+        //cout<<"lujing:"<<saveMapDirectory<<endl;
+        std::ofstream outputFile(savePCDDirectory + "/transformations.txt");
+        outputFile << fixed;
+        if (outputFile.is_open())
+            {
+               for (const auto& tempoint : *cloudKeyPoses6D)
+               {
+                 outputFile  << setprecision(4) <<tempoint.time << " ";
+                 outputFile  << setprecision(4)<<tempoint.intensity<< " ";
+                 outputFile  << setprecision(4)<< tempoint.x << " " ;
+                 outputFile  << setprecision(4)<< tempoint.y << " ";
+                 outputFile  << setprecision(4) << tempoint.z << " " ;
+                 outputFile  << setprecision(4)<< tempoint.roll << " ";
+                 outputFile  << setprecision(4)<< tempoint.pitch << " ";
+                 outputFile  << setprecision(4)<< tempoint.yaw <<endl;
 
+            }
+            outputFile.close();
+            std::cout << "点云保存成功！" << std::endl;
+        }
+        else
+        {
+            //std::cerr << "无法打开文件：" << filename << std::endl;
+            std::cerr << "无法打开文件："  << std::endl;
+        }
+    }
 
+        //save vins to txt******************add
+    void savevinsodomToTxt()
+    {
+        // string saveMapDirectory = std::getenv("HOME") + savePCDDirectory;
+        // cout<<"lujing:"<<saveMapDirectory<<endl;
+        std::ofstream outputFile(savePCDDirectory + "/vinsodom.txt");
+        outputFile << fixed;
+        if (outputFile.is_open())
+        {
+            for (const auto& tempoint : vinsodomQueue)
+            {
+                outputFile  << setprecision(4) << tempoint.header.stamp.toSec()<< " ";
+                outputFile  << setprecision(4) << tempoint.pose.pose.position.x << " " ;
+                outputFile  << setprecision(4) << tempoint.pose.pose.position.y << " ";
+                outputFile  << setprecision(4) << tempoint.pose.pose.position.z << endl;
+            }
+            outputFile.close();
+            std::cout << "vins保存成功！" << std::endl;
+        }
+        else
+        {
+            //std::cerr << "无法打开文件：" << filename << std::endl;
+            std::cerr << "vins无法打开文件："  << std::endl;
+        }
+    }
 
+    void vinsodometryHandler(const nav_msgs::Odometry::ConstPtr& odometryMsg)
+    {
+        // std::lock_guard<std::mutex> lock2(odoLock);
+        vinsodomQueue.push_back(*odometryMsg);
+        // savevinsodomToTxt(odometryMsg);
 
+        // cout<<"odomQueue.size:"<<odomQueue.size()<<endl;
+    }
 
 
 
@@ -363,11 +434,14 @@ public:
         cout << "Saving map to pcd files ..." << endl;
         // create directory and remove old files;
         savePCDDirectory = std::getenv("HOME") + savePCDDirectory;
-        int unused = system((std::string("exec rm -r ") + savePCDDirectory).c_str());
-        unused = system((std::string("mkdir ") + savePCDDirectory).c_str()); ++unused;
+        //int unused = system((std::string("exec rm -r ") + savePCDDirectory).c_str());
+        //unused = system((std::string("mkdir ") + savePCDDirectory).c_str()); ++unused;
         // save key frame transformations
         pcl::io::savePCDFileASCII(savePCDDirectory + "trajectory.pcd", *cloudKeyPoses3D);
         pcl::io::savePCDFileBinary(savePCDDirectory + "transformations.pcd", *cloudKeyPoses6D);
+                //********add
+        savePointCloudToTxt();
+        // savevinsodomToTxt();
         // extract global point cloud map        
         pcl::PointCloud<PointType>::Ptr globalCornerCloud(new pcl::PointCloud<PointType>());
         pcl::PointCloud<PointType>::Ptr globalSurfCloud(new pcl::PointCloud<PointType>());
@@ -1306,22 +1380,22 @@ public:
         {
             if (std::abs(cloudInfo.imuPitchInit) < 1.4)
             {
-                double imuWeight = 0.01;
-                tf::Quaternion imuQuaternion;
-                tf::Quaternion transformQuaternion;
-                double rollMid, pitchMid, yawMid;
+                // double imuWeight = 0.01;
+                // tf::Quaternion imuQuaternion;
+                // tf::Quaternion transformQuaternion;
+                // double rollMid, pitchMid, yawMid;
 
-                // slerp roll
-                transformQuaternion.setRPY(transformTobeMapped[0], 0, 0);
-                imuQuaternion.setRPY(cloudInfo.imuRollInit, 0, 0);
-                tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
-                transformTobeMapped[0] = rollMid;
+                // // slerp roll
+                // transformQuaternion.setRPY(transformTobeMapped[0], 0, 0);
+                // imuQuaternion.setRPY(cloudInfo.imuRollInit, 0, 0);
+                // tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
+                // transformTobeMapped[0] = rollMid;
 
-                // slerp pitch
-                transformQuaternion.setRPY(0, transformTobeMapped[1], 0);
-                imuQuaternion.setRPY(0, cloudInfo.imuPitchInit, 0);
-                tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
-                transformTobeMapped[1] = pitchMid;
+                // // slerp pitch
+                // transformQuaternion.setRPY(0, transformTobeMapped[1], 0);
+                // imuQuaternion.setRPY(0, cloudInfo.imuPitchInit, 0);
+                // tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
+                // transformTobeMapped[1] = pitchMid;
             }
         }
 
