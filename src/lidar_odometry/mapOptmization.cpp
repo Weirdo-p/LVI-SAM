@@ -1306,22 +1306,23 @@ public:
         {
             if (std::abs(cloudInfo.imuPitchInit) < 1.4)
             {
-                double imuWeight = 0.01;
-                tf::Quaternion imuQuaternion;
-                tf::Quaternion transformQuaternion;
-                double rollMid, pitchMid, yawMid;
+                ///< mini适配
+                // double imuWeight = 0.01;
+                // tf::Quaternion imuQuaternion;
+                // tf::Quaternion transformQuaternion;
+                // double rollMid, pitchMid, yawMid;
 
-                // slerp roll
-                transformQuaternion.setRPY(transformTobeMapped[0], 0, 0);
-                imuQuaternion.setRPY(cloudInfo.imuRollInit, 0, 0);
-                tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
-                transformTobeMapped[0] = rollMid;
+                // // slerp roll
+                // transformQuaternion.setRPY(transformTobeMapped[0], 0, 0);
+                // imuQuaternion.setRPY(cloudInfo.imuRollInit, 0, 0);
+                // tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
+                // transformTobeMapped[0] = rollMid;
 
-                // slerp pitch
-                transformQuaternion.setRPY(0, transformTobeMapped[1], 0);
-                imuQuaternion.setRPY(0, cloudInfo.imuPitchInit, 0);
-                tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
-                transformTobeMapped[1] = pitchMid;
+                // // slerp pitch
+                // transformQuaternion.setRPY(0, transformTobeMapped[1], 0);
+                // imuQuaternion.setRPY(0, cloudInfo.imuPitchInit, 0);
+                // tf::Matrix3x3(transformQuaternion.slerp(imuQuaternion, imuWeight)).getRPY(rollMid, pitchMid, yawMid);
+                // transformTobeMapped[1] = pitchMid;
             }
         }
 

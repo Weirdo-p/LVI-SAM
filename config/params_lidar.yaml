@@ -4,7 +4,7 @@ PROJECT_NAME: "lvi_sam"
 lvi_sam:
 
   # Topics
-  pointCloudTopic: "/points_raw"               # Point cloud data
+  pointCloudTopic: "/velodyne_points"               # Point cloud data
   imuTopic: "/imu_raw"                         # IMU data
 
   # Heading
@@ -21,16 +21,26 @@ lvi_sam:
   downsampleRate: 1                           # default: 1. Downsample your data if too many points. i.e., 16 = 64 / 4, 16 = 16 / 1 
 
   # IMU Settings
-  imuAccNoise: 3.9939570888238808e-03
-  imuGyrNoise: 1.5636343949698187e-03
-  imuAccBiasN: 6.4356659353532566e-05
-  imuGyrBiasN: 3.5640318696367613e-05
+  # imuAccNoise: 3.9939570888238808e-03
+  # imuGyrNoise: 1.5636343949698187e-03
+  # imuAccBiasN: 6.4356659353532566e-05
+  # imuGyrBiasN: 3.5640318696367613e-05
+  # imuGravity: 9.80511
+  # mini适配
+  imuAccNoise: 1.000000000e-04
+  imuGyrNoise: 3.1512889272119e-04
+  imuAccBiasN: 3.33333333333e-04
+  imuGyrBiasN: 4.3633231299858e-05
   imuGravity: 9.80511
   
   # Extrinsics (lidar -> IMU)
-  extrinsicTrans: [0.0, 0.0, 0.0]
-  extrinsicRot: [-1, 0, 0, 0, 1, 0, 0, 0, -1]
-  extrinsicRPY: [0, 1, 0, -1, 0, 0, 0, 0, 1]
+  # extrinsicTrans: [0.0, 0.0, 0.0]
+  # extrinsicRot: [-1, 0, 0, 0, 1, 0, 0, 0, -1]
+  # extrinsicRPY: [0, 1, 0, -1, 0, 0, 0, 0, 1]
+  # mini适配
+  extrinsicTrans: [0.0, 0.0, 0.03411]
+  extrinsicRot: [0, 0, -1, 0, -1, 0, -1, 0, 0]
+  extrinsicRPY: [0, 0, -1, 0, -1, 0, -1, 0, 0]
 
   # LOAM feature threshold
   edgeThreshold: 1.0

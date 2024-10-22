@@ -91,7 +91,10 @@ public:
     {
         subImu        = nh.subscribe<sensor_msgs::Imu>        (imuTopic, 2000, &ImageProjection::imuHandler, this, ros::TransportHints().tcpNoDelay());
         subOdom       = nh.subscribe<nav_msgs::Odometry>      (PROJECT_NAME + "/vins/odometry/imu_propagate_ros", 2000, &ImageProjection::odometryHandler, this, ros::TransportHints().tcpNoDelay());
-        subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>(pointCloudTopic, 5, &ImageProjection::cloudHandler, this, ros::TransportHints().tcpNoDelay());
+        // subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>(pointCloudTopic, 5, &ImageProjection::cloudHandler, this, ros::TransportHints().tcpNoDelay());
+        ///< mini适配
+        subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>(pointCloudTopic, 30, &ImageProjection::cloudHandler, this, ros::TransportHints().tcpNoDelay());
+
 
         pubExtractedCloud = nh.advertise<sensor_msgs::PointCloud2> (PROJECT_NAME + "/lidar/deskew/cloud_deskewed", 5);
         pubLaserCloudInfo = nh.advertise<lvi_sam::cloud_info>      (PROJECT_NAME + "/lidar/deskew/cloud_info", 5);
@@ -176,7 +179,9 @@ public:
         // cache point cloud
         cloudQueue.push_back(*laserCloudMsg);
 
-        if (cloudQueue.size() <= 2)
+        // if (cloudQueue.size() <= 2)
+        ///< mini适配
+        if (cloudQueue.size() <= 10)
             return false;
         else
         {
@@ -280,8 +285,12 @@ public:
 
             // get roll, pitch, and yaw estimation for this scan
             if (currentImuTime <= timeScanCur)
-                imuRPY2rosRPY(&thisImuMsg, &cloudInfo.imuRollInit, &cloudInfo.imuPitchInit, &cloudInfo.imuYawInit);
-
+                // imuRPY2rosRPY(&thisImuMsg, &cloudInfo.imuRollInit, &cloudInfo.imuPitchInit, &cloudInfo.imuYawInit);
+                ///< mini适配
+                cloudInfo.imuRollInit=0.0;
+                cloudInfo.imuPitchInit=0.0;
+                cloudInfo.imuYawInit=0.0;
+                
             if (currentImuTime > timeScanNext + 0.01)
                 break;
 
