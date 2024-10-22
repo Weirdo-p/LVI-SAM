@@ -20,6 +20,7 @@
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 
+#include <opencv2/imgproc.hpp>
 #include <cv_bridge/cv_bridge.h>
 
 #include <pcl/point_cloud.h>

@@ -27,10 +27,10 @@ void reduceVector(vector<int> &v, vector<uchar> status);
 
 class FeatureTracker
 {
-  public:
+public:
     FeatureTracker();
 
-    void readImage(const cv::Mat &_img,double _cur_time);
+    void readImage(const cv::Mat &_img, double _cur_time);
 
     void setMask();
 
@@ -64,11 +64,9 @@ class FeatureTracker
     static int n_id;
 };
 
-
 class DepthRegister
 {
 public:
-
     ros::NodeHandle n;
     // publisher for visualization
     ros::Publisher pub_depth_feature;
@@ -81,23 +79,22 @@ public:
     const int num_bins = 360;
     vector<vector<PointType>> pointsArray;
 
-    DepthRegister(ros::NodeHandle n_in):
-    n(n_in)
+    DepthRegister(ros::NodeHandle n_in) : n(n_in)
     {
         // messages for RVIZ visualization
         pub_depth_feature = n.advertise<sensor_msgs::PointCloud2>(PROJECT_NAME + "/vins/depth/depth_feature", 5);
-        pub_depth_image =   n.advertise<sensor_msgs::Image>      (PROJECT_NAME + "/vins/depth/depth_image",   5);
-        pub_depth_cloud =   n.advertise<sensor_msgs::PointCloud2>(PROJECT_NAME + "/vins/depth/depth_cloud",   5);
+        pub_depth_image = n.advertise<sensor_msgs::Image>(PROJECT_NAME + "/vins/depth/depth_image", 5);
+        pub_depth_cloud = n.advertise<sensor_msgs::PointCloud2>(PROJECT_NAME + "/vins/depth/depth_cloud", 5);
 
         pointsArray.resize(num_bins);
         for (int i = 0; i < num_bins; ++i)
             pointsArray[i].resize(num_bins);
     }
 
-    sensor_msgs::ChannelFloat32 get_depth(const ros::Time& stamp_cur, const cv::Mat& imageCur, 
-                                          const pcl::PointCloud<PointType>::Ptr& depthCloud,
-                                          const camodocal::CameraPtr& camera_model ,
-                                          const vector<geometry_msgs::Point32>& features_2d)
+    sensor_msgs::ChannelFloat32 get_depth(const ros::Time &stamp_cur, const cv::Mat &imageCur,
+                                          const pcl::PointCloud<PointType>::Ptr &depthCloud,
+                                          const camodocal::CameraPtr &camera_model,
+                                          const vector<geometry_msgs::Point32> &features_2d)
     {
         // 0.1 initialize depth for return
         sensor_msgs::ChannelFloat32 depth_of_point;
@@ -109,11 +106,20 @@ public:
             return depth_of_point;
 
         // 0.3 look up transform at current image time
-        try{
+        try
+        {
+
+        #if IF_OFFICIAL
             listener.waitForTransform("vins_world", "vins_body_ros", stamp_cur, ros::Duration(0.01));
             listener.lookupTransform("vins_world", "vins_body_ros", stamp_cur, transform);
-        } 
-        catch (tf::TransformException ex){
+        #else
+            //? mod: 直接监听vins_camFLU坐标系在世界坐标系下的表示，这样就把VIO的动态外参包括进去了
+            listener.waitForTransform("vins_world", "vins_cameraFLU", stamp_cur, ros::Duration(0.01));
+            listener.lookupTransform("vins_world", "vins_cameraFLU", stamp_cur, transform);
+        #endif
+        }
+        catch (tf::TransformException ex)
+        {
             // ROS_ERROR("image no tf");
             return depth_of_point;
         }
@@ -128,6 +134,7 @@ public:
 
         // 0.4 transform cloud from global frame to camera frame
         pcl::PointCloud<PointType>::Ptr depth_cloud_local(new pcl::PointCloud<PointType>());
+        //; 这里就是把vins_world坐标系下的点云，转到了camera的FLU坐标系下
         pcl::transformPointCloud(*depthCloud, *depth_cloud_local, transNow.inverse());
 
         // 0.5 project undistorted normalized (z) 2d features onto a unit sphere
@@ -136,10 +143,10 @@ public:
         {
             // normalize 2d feature to a unit sphere
             Eigen::Vector3f feature_cur(features_2d[i].x, features_2d[i].y, features_2d[i].z); // z always equal to 1
-            feature_cur.normalize(); 
+            feature_cur.normalize();
             // convert to ROS standard
             PointType p;
-            p.x =  feature_cur(2);
+            p.x = feature_cur(2);
             p.y = -feature_cur(0);
             p.z = -feature_cur(1);
             p.intensity = -1; // intensity will be used to save depth
@@ -185,7 +192,13 @@ public:
             }
         }
         *depth_cloud_local = *depth_cloud_local_filter2;
+
+#if IF_OFFICIAL
         publishCloud(&pub_depth_cloud, depth_cloud_local, stamp_cur, "vins_body_ros");
+#else
+        //? mod: 发布点云的坐标系
+        publishCloud(&pub_depth_cloud, depth_cloud_local, stamp_cur, "vins_cameraFLU");
+#endif
 
         // 5. project depth cloud onto a unit sphere
         pcl::PointCloud<PointType>::Ptr depth_cloud_unit_sphere(new pcl::PointCloud<PointType>());
@@ -236,17 +249,20 @@ public:
                                   features_3d_sphere->points[i].z);
 
                 Eigen::Vector3f N = (A - B).cross(B - C);
-                float s = (N(0) * A(0) + N(1) * A(1) + N(2) * A(2)) 
-                        / (N(0) * V(0) + N(1) * V(1) + N(2) * V(2));
+                float s = (N(0) * A(0) + N(1) * A(1) + N(2) * A(2)) / (N(0) * V(0) + N(1) * V(1) + N(2) * V(2));
 
                 float min_depth = min(r1, min(r2, r3));
                 float max_depth = max(r1, max(r2, r3));
                 if (max_depth - min_depth > 2 || s <= 0.5)
                 {
                     continue;
-                } else if (s - max_depth > 0) {
+                }
+                else if (s - max_depth > 0)
+                {
                     s = max_depth;
-                } else if (s - min_depth < 0) {
+                }
+                else if (s - min_depth < 0)
+                {
                     s = min_depth;
                 }
                 // convert feature into cartesian space if depth is available
@@ -259,8 +275,13 @@ public:
         }
 
         // visualize features in cartesian 3d space (including the feature without depth (default 1))
+#if IF_OFFICIAL
         publishCloud(&pub_depth_feature, features_3d_sphere, stamp_cur, "vins_body_ros");
-        
+#else
+        //? mod：发布点云坐标系
+        publishCloud(&pub_depth_feature, features_3d_sphere, stamp_cur, "vins_cameraFLU");
+#endif
+
         // update depth value for return
         for (int i = 0; i < (int)features_3d_sphere->size(); ++i)
         {
@@ -279,10 +300,10 @@ public:
                 // convert points from 3D to 2D
                 Eigen::Vector3d p_3d(-depth_cloud_local->points[i].y,
                                      -depth_cloud_local->points[i].z,
-                                      depth_cloud_local->points[i].x);
+                                     depth_cloud_local->points[i].x);
                 Eigen::Vector2d p_2d;
                 camera_model->spaceToPlane(p_3d, p_2d);
-                
+
                 points_2d.push_back(cv::Point2f(p_2d(0), p_2d(1)));
                 points_distance.push_back(pointDistance(depth_cloud_local->points[i]));
             }
@@ -309,22 +330,33 @@ public:
         return depth_of_point;
     }
 
-    void getColor(float p, float np, float&r, float&g, float&b) 
+    void getColor(float p, float np, float &r, float &g, float &b)
     {
         float inc = 6.0 / np;
         float x = p * inc;
-        r = 0.0f; g = 0.0f; b = 0.0f;
-        if ((0 <= x && x <= 1) || (5 <= x && x <= 6)) r = 1.0f;
-        else if (4 <= x && x <= 5) r = x - 4;
-        else if (1 <= x && x <= 2) r = 1.0f - (x - 1);
+        r = 0.0f;
+        g = 0.0f;
+        b = 0.0f;
+        if ((0 <= x && x <= 1) || (5 <= x && x <= 6))
+            r = 1.0f;
+        else if (4 <= x && x <= 5)
+            r = x - 4;
+        else if (1 <= x && x <= 2)
+            r = 1.0f - (x - 1);
 
-        if (1 <= x && x <= 3) g = 1.0f;
-        else if (0 <= x && x <= 1) g = x - 0;
-        else if (3 <= x && x <= 4) g = 1.0f - (x - 3);
+        if (1 <= x && x <= 3)
+            g = 1.0f;
+        else if (0 <= x && x <= 1)
+            g = x - 0;
+        else if (3 <= x && x <= 4)
+            g = 1.0f - (x - 3);
 
-        if (3 <= x && x <= 5) b = 1.0f;
-        else if (2 <= x && x <= 3) b = x - 2;
-        else if (5 <= x && x <= 6) b = 1.0f - (x - 5);
+        if (3 <= x && x <= 5)
+            b = 1.0f;
+        else if (2 <= x && x <= 3)
+            b = x - 2;
+        else if (5 <= x && x <= 6)
+            b = 1.0f - (x - 5);
         r *= 255.0;
         g *= 255.0;
         b *= 255.0;

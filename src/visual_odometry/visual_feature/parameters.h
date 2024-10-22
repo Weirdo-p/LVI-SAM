@@ -13,6 +13,7 @@
 #include <sensor_msgs/image_encodings.h>
 #include <nav_msgs/Odometry.h>
 
+#include <opencv2/imgproc.hpp>
 #include <cv_bridge/cv_bridge.h>
 
 #include <pcl/point_cloud.h>
@@ -87,13 +88,16 @@ extern int EQUALIZE;
 extern int FISHEYE;
 extern bool PUB_THIS_FRAME;
 
+#if IF_OFFICIAL
 extern double L_C_TX;
 extern double L_C_TY;
 extern double L_C_TZ;
 extern double L_C_RX;
 extern double L_C_RY;
 extern double L_C_RZ;
-
+#else
+extern tf::Transform Transform_imu_lidar;
+#endif 
 
 void readParameters(ros::NodeHandle &n);
 

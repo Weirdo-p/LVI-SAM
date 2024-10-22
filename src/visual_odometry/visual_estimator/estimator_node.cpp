@@ -12,7 +12,6 @@
 #include "parameters.h"
 #include "utility/visualization.h"
 
-
 Estimator estimator;
 
 std::condition_variable con;
@@ -155,11 +154,12 @@ void imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
         predict(imu_msg);
         std_msgs::Header header = imu_msg->header;
         if (estimator.solver_flag == Estimator::SolverFlag::NON_LINEAR)
-            pubLatestOdometry(tmp_P, tmp_Q, tmp_V, header, estimator.failureCount);
+            pubLatestOdometry(tmp_P, tmp_Q, tmp_V, header, estimator.failureCount,
+                estimator.tic[0], Eigen::Quaterniond(estimator.ric[0]));
     }
 }
 
-void odom_callback(const nav_msgs::Odometry::ConstPtr& odom_msg)
+void odom_callback(const nav_msgs::Odometry::ConstPtr &odom_msg)
 {
     m_odom.lock();
     odomQueue.push_back(*odom_msg);
@@ -186,9 +186,9 @@ void restart_callback(const std_msgs::BoolConstPtr &restart_msg)
     {
         ROS_WARN("restart the estimator!");
         m_buf.lock();
-        while(!feature_buf.empty())
+        while (!feature_buf.empty())
             feature_buf.pop();
-        while(!imu_buf.empty())
+        while (!imu_buf.empty())
             imu_buf.pop();
         m_buf.unlock();
         m_estimator.lock();
@@ -209,9 +209,7 @@ void process()
         std::vector<std::pair<std::vector<sensor_msgs::ImuConstPtr>, sensor_msgs::PointCloudConstPtr>> measurements;
         std::unique_lock<std::mutex> lk(m_buf);
         con.wait(lk, [&]
-                 {
-            return (measurements = getMeasurements()).size() != 0;
-                 });
+                 { return (measurements = getMeasurements()).size() != 0; });
         lk.unlock();
 
         m_estimator.lock();
@@ -226,7 +224,7 @@ void process()
                 double t = imu_msg->header.stamp.toSec();
                 double img_t = img_msg->header.stamp.toSec() + estimator.td;
                 if (t <= img_t)
-                { 
+                {
                     if (current_time < 0)
                         current_time = t;
                     double dt = t - current_time;
@@ -282,15 +280,15 @@ void process()
                 ROS_ASSERT(z == 1);
                 Eigen::Matrix<double, 8, 1> xyz_uv_velocity_depth;
                 xyz_uv_velocity_depth << x, y, z, p_u, p_v, velocity_x, velocity_y, depth;
-                image[feature_id].emplace_back(camera_id,  xyz_uv_velocity_depth);
+                image[feature_id].emplace_back(camera_id, xyz_uv_velocity_depth);
             }
 
             // Get initialization info from lidar odometry
             vector<float> initialization_info;
             m_odom.lock();
+            //; 注意：这里lidar里程计只是为了给VINS做初始化使用的，只要初始化成功之后这个信息就没用了
             initialization_info = odomRegister->getOdometry(odomQueue, img_msg->header.stamp.toSec() + estimator.td);
             m_odom.unlock();
-
 
             estimator.processImage(image, initialization_info, img_msg->header);
             // double whole_t = t_s.toc();
@@ -328,11 +326,16 @@ int main(int argc, char **argv)
 
     registerPub(n);
 
+#if IF_OFFICIAL
     odomRegister = new odometryRegister(n);
+#else
+    Eigen::Vector3d t_lidar_imu = -R_imu_lidar.transpose() * t_imu_lidar;
+    odomRegister = new odometryRegister(n, R_imu_lidar.transpose(), t_lidar_imu);
+#endif
 
-    ros::Subscriber sub_imu     = n.subscribe(IMU_TOPIC,      5000, imu_callback,  ros::TransportHints().tcpNoDelay());
-    ros::Subscriber sub_odom    = n.subscribe("odometry/imu", 5000, odom_callback);
-    ros::Subscriber sub_image   = n.subscribe(PROJECT_NAME + "/vins/feature/feature", 1, feature_callback);
+    ros::Subscriber sub_imu = n.subscribe(IMU_TOPIC, 5000, imu_callback, ros::TransportHints().tcpNoDelay());
+    ros::Subscriber sub_odom = n.subscribe("odometry/imu", 5000, odom_callback);
+    ros::Subscriber sub_image = n.subscribe(PROJECT_NAME + "/vins/feature/feature", 1, feature_callback);
     ros::Subscriber sub_restart = n.subscribe(PROJECT_NAME + "/vins/feature/restart", 1, restart_callback);
     if (!USE_LIDAR)
         sub_odom.shutdown();
