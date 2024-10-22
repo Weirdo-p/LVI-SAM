@@ -7,6 +7,7 @@
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <iostream>
 
 #include "gpl.h"
 
@@ -162,6 +163,7 @@ PinholeCamera::Parameters::readFromYamlFile(const std::string& filename)
         }
     }
 
+    std::cout <<"testtttt" << std::endl;;
     m_modelType = PINHOLE;
     fs["camera_name"] >> m_cameraName;
     m_imageWidth = static_cast<int>(fs["image_width"]);
@@ -172,13 +174,13 @@ PinholeCamera::Parameters::readFromYamlFile(const std::string& filename)
     m_k2 = static_cast<double>(n["k2"]);
     m_p1 = static_cast<double>(n["p1"]);
     m_p2 = static_cast<double>(n["p2"]);
-
+    std::cout <<"testtttt1" << std::endl;;
     n = fs["projection_parameters"];
     m_fx = static_cast<double>(n["fx"]);
     m_fy = static_cast<double>(n["fy"]);
     m_cx = static_cast<double>(n["cx"]);
     m_cy = static_cast<double>(n["cy"]);
-
+    std::cout <<"testtttt2" << std::endl;;
     return true;
 }
 

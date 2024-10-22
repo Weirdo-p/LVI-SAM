@@ -162,7 +162,9 @@ void imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
 void odom_callback(const nav_msgs::Odometry::ConstPtr &odom_msg)
 {
     m_odom.lock();
+    // R_l^w
     odomQueue.push_back(*odom_msg);
+
     m_odom.unlock();
 }
 
@@ -230,14 +232,15 @@ void process()
                     double dt = t - current_time;
                     ROS_ASSERT(dt >= 0);
                     current_time = t;
-                    dx = imu_msg->linear_acceleration.x;
-                    dy = imu_msg->linear_acceleration.y;
-                    dz = imu_msg->linear_acceleration.z;
-                    rx = imu_msg->angular_velocity.x;
-                    ry = imu_msg->angular_velocity.y;
-                    rz = imu_msg->angular_velocity.z;
+                    // mini adapt:
+                    dx = imu_msg->linear_acceleration.y * 200; // imu_msg->linear_acceleration.x * 200;
+                    dy = -imu_msg->linear_acceleration.z * 200;
+                    dz = -imu_msg->linear_acceleration.x * 200;
+                    rx = imu_msg->angular_velocity.y * 200;
+                    ry = -imu_msg->angular_velocity.z * 200;
+                    rz = -imu_msg->angular_velocity.x * 200;
                     estimator.processIMU(dt, Vector3d(dx, dy, dz), Vector3d(rx, ry, rz));
-                    //printf("imu: dt:%f a: %f %f %f w: %f %f %f\n",dt, dx, dy, dz, rx, ry, rz);
+                    // printf("imu: dt:%f a: %f %f %f w: %f %f %f\n",dt, dx, dy, dz, rx, ry, rz);
                 }
                 else
                 {
@@ -319,7 +322,7 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "vins");
     ros::NodeHandle n;
     ROS_INFO("\033[1;32m----> Visual Odometry Estimator Started.\033[0m");
-    ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Warn);
+    ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
 
     readParameters(n);
     estimator.setParameter();
@@ -329,7 +332,9 @@ int main(int argc, char **argv)
 #if IF_OFFICIAL
     odomRegister = new odometryRegister(n);
 #else
+    // t_imu_lidar l in b
     Eigen::Vector3d t_lidar_imu = -R_imu_lidar.transpose() * t_imu_lidar;
+    // IMU in lidar
     odomRegister = new odometryRegister(n, R_imu_lidar.transpose(), t_lidar_imu);
 #endif
 

@@ -81,6 +81,7 @@ public:
     
     //? add
     //; t_lidar_imu，即imu -> lidar
+    // b in l
     Eigen::Vector3d t_lidar_imu;   
 
     ros::Publisher pub_latest_odometry; 
@@ -89,6 +90,7 @@ public:
     odometryRegister(ros::NodeHandle n_in):
         n(n_in)
 #else
+    // R_b^l
     odometryRegister(ros::NodeHandle n_in, const Eigen::Matrix3d& R_lidar_imu_,
         const Eigen::Vector3d& t_lidar_imu_):
         n(n_in), t_lidar_imu(t_lidar_imu_)
@@ -146,6 +148,7 @@ public:
         }
 
         // convert odometry rotation from lidar ROS frame to VINS camera frame (only rotation, assume lidar, camera, and IMU are close enough)
+        // R_l^w
         tf::Quaternion q_odom_lidar;
         tf::quaternionMsgToTF(odomCur.pose.pose.orientation, q_odom_lidar);
 
@@ -154,11 +157,13 @@ public:
     #else
         //? mod: vins_world坐标系和odom坐标系不再绕着Z轴旋转，而是直接对齐，也就是前面不乘 tf::createQuaternionFromRPY(0, 0, M_PI) 了
         //; R_odom_imu = R_odom_lidar * R_lidar_imu
+        // R_c^w?
         tf::Quaternion q_odom_cam = q_odom_lidar * q_lidar_to_cam; // global rotate by pi // mark: camera - lidar
     #endif
         tf::quaternionTFToMsg(q_odom_cam, odomCur.pose.pose.orientation);
 
         // convert odometry position from lidar ROS frame to VINS camera frame
+        // 这里是忽略了lidar和camera之间的杆臂？
         Eigen::Vector3d p_eigen(odomCur.pose.pose.position.x, odomCur.pose.pose.position.y, odomCur.pose.pose.position.z);
         Eigen::Vector3d v_eigen(odomCur.twist.twist.linear.x, odomCur.twist.twist.linear.y, odomCur.twist.twist.linear.z);
     
@@ -173,6 +178,7 @@ public:
         Eigen::Quaterniond q_wl(q_odom_lidar.w(), q_odom_lidar.x(), q_odom_lidar.y(), q_odom_lidar.z());
         //; 注意这里位置需要补偿，imu原点和lidar原点的速度虽然并不严格相等，但是初始化阶段相差不大，所以直接赋值即可
         p_eigen += q_wl * t_lidar_imu;
+        // l in world
         Eigen::Vector3d p_eigen_new = p_eigen;
         Eigen::Vector3d v_eigen_new = v_eigen;
     #endif

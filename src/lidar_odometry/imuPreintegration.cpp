@@ -501,7 +501,7 @@ public:
         //; 注意这里IMU数据已经转到LiDAR坐标系中了，所以这里已经没有旋转了
         gtsam::Pose3 imuPose = gtsam::Pose3(currentState.quaternion(), currentState.position());
         //; T_odom_imulidar * T_imulidar_lidar = T_odom_lidar
-        gtsam::Pose3 lidarPose = imuPose.compose(imu2Lidar);
+        gtsam::Pose3 lidarPose = imuPose.compose(imu2Lidar); // from lidar -> imu
 
         odometry.pose.pose.position.x = lidarPose.translation().x();
         odometry.pose.pose.position.y = lidarPose.translation().y();
