@@ -538,8 +538,8 @@ public:
         static pcl::IterativeClosestPoint<PointType, PointType> icp;
         icp.setMaxCorrespondenceDistance(historyKeyframeSearchRadius * 2);
         icp.setMaximumIterations(100);
-        icp.setTransformationEpsilon(1e-6);
-        icp.setEuclideanFitnessEpsilon(1e-6);
+        icp.setTransformationEpsilon(1e-3);
+        icp.setEuclideanFitnessEpsilon(1e-3);
         icp.setRANSACIterations(0);
 
         // Align clouds

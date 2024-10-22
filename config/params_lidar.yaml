@@ -58,7 +58,7 @@ lvi_sam:
   
   ###################### extrinsic between IMU and LiDAR  ###########################
   ###################### T_IMU_LiDAR, LiDAR -> IMU       ############################
-  extrinsicTranslation: [0.0, 0.0, 0.03411]    
+  extrinsicTranslation: [0.03411, 0.0, 0.0]    
   extrinsicRotation: [0, 0, -1, 
                       0, -1, 0, 
                       -1, 0, 0]

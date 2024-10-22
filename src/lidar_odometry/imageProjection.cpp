@@ -91,7 +91,9 @@ public:
         //! 重要：VIO发来的里程计消息，会作为后端点云配准的位姿初值
         subVinsOdom = nh.subscribe<nav_msgs::Odometry>(PROJECT_NAME + "/vins/odometry/imu_propagate_ros", 2000, &ImageProjection::vinsOdometryHandler, this, ros::TransportHints().tcpNoDelay());
         subImuOdom = nh.subscribe<nav_msgs::Odometry>(odomTopic + "_incremental", 2000, &ImageProjection::imuOdometryHandler, this, ros::TransportHints().tcpNoDelay());
-        subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>(pointCloudTopic, 5, &ImageProjection::cloudHandler, this, ros::TransportHints().tcpNoDelay());
+        // subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>(pointCloudTopic, 5, &ImageProjection::cloudHandler, this, ros::TransportHints().tcpNoDelay());
+        ///< mini适配
+        subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>(pointCloudTopic, 30, &ImageProjection::cloudHandler, this, ros::TransportHints().tcpNoDelay());
 
         pubExtractedCloud = nh.advertise<sensor_msgs::PointCloud2>(PROJECT_NAME + "/lidar/deskew/cloud_deskewed", 5);
         pubLaserCloudInfo = nh.advertise<lvi_sam::cloud_info>(PROJECT_NAME + "/lidar/deskew/cloud_info", 5);
@@ -575,18 +577,19 @@ public:
 
         // If the sensor moves relatively slow, like walking speed, positional deskew seems to have little benefits. Thus code below is commented.
 
-        //? add: 打开去平移畸变，因为对于自动驾驶场景来说，高速状态下平移还是比较大的
-        if(transDeskew)
-        {
-            if (cloudInfo.vinsOdomAvailable == false || cloudInfo.imuOdomAvailable == false || odomDeskewFlag == false)
-                return;
+        ///< mini适配
+        // //? add: 打开去平移畸变，因为对于自动驾驶场景来说，高速状态下平移还是比较大的
+        // if(transDeskew)
+        // {
+        //     if (cloudInfo.vinsOdomAvailable == false || cloudInfo.imuOdomAvailable == false || odomDeskewFlag == false)
+        //         return;
 
-            float ratio = relTime / (timeScanEnd - timeScanCur);
+        //     float ratio = relTime / (timeScanEnd - timeScanCur);
 
-            *posXCur = ratio * odomIncreX;
-            *posYCur = ratio * odomIncreY;
-            *posZCur = ratio * odomIncreZ;
-        }
+        //     *posXCur = ratio * odomIncreX;
+        //     *posYCur = ratio * odomIncreY;
+        //     *posZCur = ratio * odomIncreZ;
+        // }
     }
 
     PointType deskewPoint(PointType *point, double relTime)
@@ -623,7 +626,7 @@ public:
 
     void projectPointCloud()
     {
-        int cloudSize = laserCloudIn->points.size();
+        int cloudSize = (int)laserCloudIn->points.size();
         // range image projection
         for (int i = 0; i < cloudSize; ++i)
         {

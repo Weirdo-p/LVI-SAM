@@ -342,9 +342,9 @@ public:
         // imu_out.linear_acceleration.y = acc.y();
         // imu_out.linear_acceleration.z = acc.z();
         ///< mini适配
-        imu_out.linear_acceleration.x = acc.x()*200;
-        imu_out.linear_acceleration.y = acc.y()*200;
-        imu_out.linear_acceleration.z = acc.z()*200;
+        // imu_out.linear_acceleration.x = acc.x()*200;
+        // imu_out.linear_acceleration.y = acc.y()*200;
+        // imu_out.linear_acceleration.z = acc.z()*200;
     #else
         acc = R_lidar_imu * acc;
     #endif
@@ -359,25 +359,11 @@ public:
         // imu_out.angular_velocity.y = gyr.y();
         // imu_out.angular_velocity.z = gyr.z();
         ///< mini适配
-        imu_out.angular_velocity.x = gyr.x()*200;
-        imu_out.angular_velocity.y = gyr.y()*200;
-        imu_out.angular_velocity.z = gyr.z()*200;
-        // rotate roll pitch yaw
-        ///< mini适配
-        // Eigen::Quaterniond q_from(imu_in.orientation.w, imu_in.orientation.x, imu_in.orientation.y, imu_in.orientation.z);
-        // Eigen::Quaterniond q_final = q_from * extQRPY;
-        // imu_out.orientation.x = q_final.x();
-        // imu_out.orientation.y = q_final.y();
-        // imu_out.orientation.z = q_final.z();
-        // imu_out.orientation.w = q_final.w();
-
-        // if (sqrt(q_final.x()*q_final.x() + q_final.y()*q_final.y() + q_final.z()*q_final.z() + q_final.w()*q_final.w()) < 0.1)
-        // {
-        //     ROS_ERROR("Invalid quaternion, please use a 9-axis IMU!");
-        //     ros::shutdown();
-        // }
+        // imu_out.angular_velocity.x = gyr.x()*200;
+        // imu_out.angular_velocity.y = gyr.y()*200;
+        // imu_out.angular_velocity.z = gyr.z()*200;
     #else
-        // gyr = R_lidar_imu * gyr;
+        gyr = R_lidar_imu * gyr;
     #endif
         
         imu_out.angular_velocity.x = gyr.x()*200;
@@ -386,7 +372,7 @@ public:
         // rotate roll pitch yaw
         // Eigen::Quaterniond q_from(imu_in.orientation.w, imu_in.orientation.x, imu_in.orientation.y, imu_in.orientation.z);  
     #if IF_OFFICIAL
-        Eigen::Quaterniond q_final = q_from * extQRPY;
+        // Eigen::Quaterniond q_final = q_from * extQRPY;
     #else
         // Eigen::Quaterniond q_final = q_from * Q_quat_lidar;
     #endif  
