@@ -335,7 +335,10 @@ public:
     {
         sensor_msgs::Imu imu_out = imu_in;
         // rotate acceleration
-        Eigen::Vector3d acc(imu_in.linear_acceleration.x, imu_in.linear_acceleration.y, imu_in.linear_acceleration.z);
+        // Eigen::Vector3d acc(imu_in.linear_acceleration.x, imu_in.linear_acceleration.y, imu_in.linear_acceleration.z);
+        ///< mini适配
+        Eigen::Vector3d acc(imu_in.linear_acceleration.y, -imu_in.linear_acceleration.z, -imu_in.linear_acceleration.x);
+
     #if IF_OFFICIAL
         acc = extRot * acc;
         // imu_out.linear_acceleration.x = acc.x();
@@ -352,7 +355,9 @@ public:
         imu_out.linear_acceleration.y = acc.y()*200;
         imu_out.linear_acceleration.z = acc.z()*200;
         // rotate gyroscope
-        Eigen::Vector3d gyr(imu_in.angular_velocity.x, imu_in.angular_velocity.y, imu_in.angular_velocity.z);
+        // Eigen::Vector3d gyr(imu_in.angular_velocity.x, imu_in.angular_velocity.y, imu_in.angular_velocity.z);
+        ///< mini适配
+        Eigen::Vector3d gyr(imu_in.angular_velocity.y, -imu_in.angular_velocity.z, -imu_in.angular_velocity.x);
     #if IF_OFFICIAL
         gyr = extRot * gyr;
         // imu_out.angular_velocity.x = gyr.x();

@@ -779,48 +779,48 @@ public:
             return;
         }
 
-        // use VINS odometry estimation for pose guess
-        // Step 1. 优先使用VINS odom做初值猜测
-        static int vinsOdomResetId = 0; //; 上次vins里程计重启的id
-        static bool lastVinsTransAvailable = false;
-        static Eigen::Affine3f lastVinsTransformation;
-        //; 两次重启id必须一样，这样才说明最近vins odom没有重启，这样的位姿才是比较准确的
-        if (cloudInfo.vinsOdomAvailable == true && cloudInfo.vinsOdomResetId == vinsOdomResetId)
-        {
-            // ROS_INFO("Using VINS initial guess");
-            Eigen::Affine3f transBack = pcl::getTransformation(cloudInfo.initialGuessX, cloudInfo.initialGuessY, cloudInfo.initialGuessZ,
-                                                               cloudInfo.initialGuessRoll, cloudInfo.initialGuessPitch, cloudInfo.initialGuessYaw);
-            if (lastVinsTransAvailable == false)
-            {
-                // ROS_INFO("Initializing VINS initial guess");
-                //! 重要：使用vins发来的T_odom_lidar位姿进行初始的位姿估计
-                lastVinsTransformation = transBack;
-                lastVinsTransAvailable = true;
-            }
-            else
-            {
-                // ROS_INFO("Obtaining VINS incremental guess");
-                Eigen::Affine3f transIncre = lastVinsTransformation.inverse() * transBack;
+        // // use VINS odometry estimation for pose guess
+        // // Step 1. 优先使用VINS odom做初值猜测
+        // static int vinsOdomResetId = 0; //; 上次vins里程计重启的id
+        // static bool lastVinsTransAvailable = false;
+        // static Eigen::Affine3f lastVinsTransformation;
+        // //; 两次重启id必须一样，这样才说明最近vins odom没有重启，这样的位姿才是比较准确的
+        // if (cloudInfo.vinsOdomAvailable == true && cloudInfo.vinsOdomResetId == vinsOdomResetId)
+        // {
+        //     // ROS_INFO("Using VINS initial guess");
+        //     Eigen::Affine3f transBack = pcl::getTransformation(cloudInfo.initialGuessX, cloudInfo.initialGuessY, cloudInfo.initialGuessZ,
+        //                                                        cloudInfo.initialGuessRoll, cloudInfo.initialGuessPitch, cloudInfo.initialGuessYaw);
+        //     if (lastVinsTransAvailable == false)
+        //     {
+        //         // ROS_INFO("Initializing VINS initial guess");
+        //         //! 重要：使用vins发来的T_odom_lidar位姿进行初始的位姿估计
+        //         lastVinsTransformation = transBack;
+        //         lastVinsTransAvailable = true;
+        //     }
+        //     else
+        //     {
+        //         // ROS_INFO("Obtaining VINS incremental guess");
+        //         Eigen::Affine3f transIncre = lastVinsTransformation.inverse() * transBack;
 
-                Eigen::Affine3f transTobe = trans2Affine3f(transformTobeMapped);
-                Eigen::Affine3f transFinal = transTobe * transIncre;
-                pcl::getTranslationAndEulerAngles(transFinal, transformTobeMapped[3], transformTobeMapped[4], transformTobeMapped[5],
-                                                  transformTobeMapped[0], transformTobeMapped[1], transformTobeMapped[2]);
+        //         Eigen::Affine3f transTobe = trans2Affine3f(transformTobeMapped);
+        //         Eigen::Affine3f transFinal = transTobe * transIncre;
+        //         pcl::getTranslationAndEulerAngles(transFinal, transformTobeMapped[3], transformTobeMapped[4], transformTobeMapped[5],
+        //                                           transformTobeMapped[0], transformTobeMapped[1], transformTobeMapped[2]);
 
-                lastVinsTransformation = transBack;
+        //         lastVinsTransformation = transBack;
 
-                lastImuTransformation = pcl::getTransformation(0, 0, 0, cloudInfo.imuRollInit, cloudInfo.imuPitchInit, cloudInfo.imuYawInit); // save imu before return;
-                return;
-            }
-        }
-        else
-        {
-            // ROS_WARN("VINS odom failure in Lidar init guess! Try to use imu odom!");
-            // std::cout << "vinsOdomAvailable = " << cloudInfo.vinsOdomAvailable << ", this vinsOdomResetId = "
-            //     << cloudInfo.vinsOdomResetId << ", last = " << vinsOdomResetId << std::endl;
-            vinsOdomResetId = cloudInfo.vinsOdomResetId;
-            lastVinsTransAvailable = false;
-        }
+        //         lastImuTransformation = pcl::getTransformation(0, 0, 0, cloudInfo.imuRollInit, cloudInfo.imuPitchInit, cloudInfo.imuYawInit); // save imu before return;
+        //         return;
+        //     }
+        // }
+        // else
+        // {
+        //     // ROS_WARN("VINS odom failure in Lidar init guess! Try to use imu odom!");
+        //     // std::cout << "vinsOdomAvailable = " << cloudInfo.vinsOdomAvailable << ", this vinsOdomResetId = "
+        //     //     << cloudInfo.vinsOdomResetId << ", last = " << vinsOdomResetId << std::endl;
+        //     vinsOdomResetId = cloudInfo.vinsOdomResetId;
+        //     lastVinsTransAvailable = false;
+        // }
 
         // use imu pre-integration estimation for pose guess
         // Step 2. 其次使用imu odom做初值猜测

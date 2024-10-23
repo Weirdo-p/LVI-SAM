@@ -446,6 +446,7 @@ public:
         pcl::getTranslationAndEulerAngles(transBt, odomIncreX, odomIncreY, odomIncreZ, rollIncre, pitchIncre, yawIncre);
 
         odomDeskewFlag = true;
+        cloudInfo.vinsOdomAvailable = false;
     }
 
     void imuOdomDeskewInfo()
